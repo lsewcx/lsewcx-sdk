@@ -21,7 +21,7 @@ def _setup_logging() -> None:
         print(f"[lsewcx] 无效的 {ENV_VAR}={level!r}，回退到 INFO", file=sys.stderr)
         level = "INFO"
 
-    logger.remove()                      # 去掉自带默认 sink，否则 DEBUG 仍会输出
+    logger.remove()  # 去掉自带默认 sink，否则 DEBUG 仍会输出
     logger.add(sys.stderr, level=level)  # 全局唯一 sink：所有日志统一按 .env 等级
 
 
