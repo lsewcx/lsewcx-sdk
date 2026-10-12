@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+#
+# 交互式生成 Conventional Commits 格式的提交信息。
+#
+# 直接运行 `git commit`（不加 -m）时，会先弹出类型选择菜单，再逐项填写
+# scope / 描述 / 补充说明，写进 git 的提交信息文件，编辑器里可做最后确认。
+#
+# 跳过方式：
+#   git commit -m "..."    只走 commit-msg 的格式校验，不弹菜单
+#   git commit --no-verify 完全跳过钩子
+set -euo pipefail
+
+MSG_FILE="$1"
+SOURCE="${2:-}"
+
+# 合并、rebase 等自动生成的提交不打扰
+case "$SOURCE" in
+merge | squash | commit) exit 0 ;;
+esac
+
+# 没有可交互终端（CI、脚本里）就跳过
+if ! : 2>/dev/null </dev/tty; then
+    exit 0
+fi
+exec </dev/tty 2>/dev/null
+
+# 文件里已经有非注释内容（比如 -m 传入的消息）就不干预
+if [ -f "$MSG_FILE" ] && grep -qEv '^[[:space:]]*(#|$)' "$MSG_FILE"; then
+    exit 0
+fi
+
+types=(
+    "feat      新功能"
+    "fix       修复 Bug"
+    "docs      文档"
+    "style     格式调整（不影响代码逻辑）"
+    "refactor  重构（不新增功能也不修 Bug）"
+    "perf      性能优化"
+    "test      测试"
+    "build     构建系统或依赖"
+    "ci        CI 配置"
+    "chore     杂项（其他不改动源码的变更）"
+    "revert    回退提交"
+)
+
+if command -v fzf >/dev/null 2>&1; then
+    picked=$(printf '%s\n' "${types[@]}" |
+        fzf --height=15 --prompt='选择提交类型 > ' --header='回车确认，Esc 取消') || exit 1
+else
+    PS3="选择提交类型（输入序号回车，Ctrl-C 取消）: "
+    select picked in "${types[@]}"; do
+        [ -n "${picked:-}" ] && break
+    done
+fi
+
+[ -n "${picked:-}" ] || exit 1
+type="${picked%% *}"
+
+read -r -p "scope（可留空，如 logger / deps）: " scope
+scope="$(printf '%s' "$scope" | tr -d '[:space:]')"
+read -r -p "简短描述: " subject
+[ -n "$subject" ] || {
+    echo "✖ 描述不能为空，已取消提交。" >&2
+    exit 1
+}
+read -r -p "补充说明（可留空）: " body
+
+header="$type"
+[ -n "$scope" ] && header="$header($scope)"
+header="$header: $subject"
+
+{
+    printf '%s\n' "$header"
+    if [ -n "$body" ]; then
+        printf '\n%s\n' "$body"
+    fi
+} >"$MSG_FILE"
+
+echo
+echo "✔ 已生成：$header"
+echo "  接下来会打开编辑器做最后确认（保存退出即提交）。"
+echo

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+#
+# 校验提交信息是否符合 Conventional Commits 格式。
+# 跳过检查：git commit --no-verify
+set -euo pipefail
+
+MSG_FILE="$1"
+
+first_line="$(awk 'NF && $1 !~ /^#/ { print; exit }' "$MSG_FILE")"
+
+pattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]+\))?!?: .+'
+
+ok=0
+if [[ "$first_line" =~ $pattern ]] || [[ "$first_line" =~ ^(Merge|Revert|fixup!|squash!) ]]; then
+    ok=1
+fi
+
+if [ "$ok" -ne 1 ]; then
+    cat >&2 <<'EOF'
+✖ 提交信息不符合 Conventional Commits 规范
+
+  格式： <类型>(<可选 scope>): <描述>
+  类型： feat | fix | docs | style | refactor | perf | test | build | ci | chore | revert
+  示例： feat(logger): 支持从 .env 读取日志等级
+
+  提示：直接运行 `git commit`（不加 -m）会弹出交互式类型选择菜单；
+       确需跳过检查时用 `git commit --no-verify`。
+
+EOF
+    exit 1
+fi
