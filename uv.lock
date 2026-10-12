@@ -87,18 +87,24 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "daft" },
-    { name = "isort" },
     { name = "loguru" },
     { name = "python-dotenv" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "isort" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "daft", specifier = ">=0.7.26" },
-    { name = "isort", specifier = ">=9.0.2" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "python-dotenv", specifier = ">=1.2.4" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "isort", specifier = ">=9.0.2" }]
 
 [[package]]
 name = "mypy-extensions"
