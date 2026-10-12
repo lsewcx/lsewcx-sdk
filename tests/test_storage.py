@@ -7,6 +7,8 @@ from lsewcx.utils import storage
 
 Usage = namedtuple("usage", "total used free")
 
+GIB = 1024**3  # 二进制口径参考值：测试自备，不依赖被测模块导出
+
 
 def _patch_disk_usage(monkeypatch, free: int) -> None:
     """把 storage 里的 shutil 换成一个返回固定 free 值的替身。"""
@@ -62,5 +64,12 @@ def test_left_space_unit_is_decimal_gb(monkeypatch):
     _patch_disk_usage(monkeypatch, free=storage.GB)
     assert storage.left_space(".") == pytest.approx(1.0)
 
-    _patch_disk_usage(monkeypatch, free=storage.GIB)
-    assert storage.left_space(".") == pytest.approx(1024**3 / 1000**3)
+    _patch_disk_usage(monkeypatch, free=GIB)
+    assert storage.left_space(".") == pytest.approx(GIB / storage.GB)
+
+
+def test_left_space_keeps_gb_unit_for_large_disks(monkeypatch):
+    """容量超过 1TB 时返回值仍是 GB（只有日志会切换单位）。"""
+    _patch_disk_usage(monkeypatch, free=2 * storage.TB)
+
+    assert storage.left_space(".") == pytest.approx(2000.0)
