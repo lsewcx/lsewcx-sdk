@@ -24,6 +24,7 @@ build-backend = "uv_build"
 dev = [
     "black>=26.10.1",
     "isort>=9.0.2",
+    "pytest>=9.1.1",
 ]
 
 [tool.black]
@@ -31,3 +32,6 @@ target-version = ["py312"]
 
 [tool.isort]
 profile = "black"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
