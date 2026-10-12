@@ -1,2 +1,6 @@
+
+from lsewcx.config.logger import logger
+
+
 def main() -> None:
-    print("Hello from lsewcx!")
+    logger.info("Hello from lsewcx!")
