@@ -3,9 +3,10 @@ import zlib
 from pathlib import Path
 
 import pytest
-from daft.exceptions import DaftCoreException
 
 from lsewcx.utils.image import image_infos
+
+OK_KEYS = {"path", "width", "height", "format", "mode", "size_bytes"}
 
 
 def make_png(w: int, h: int) -> bytes:
@@ -53,6 +54,15 @@ def test_basic_fields(png_file):
     assert info["mode"] == "RGB"
 
 
+def test_success_item_has_exactly_the_six_keys(png_file):
+    """成功项只有六个信息键，不带 error。"""
+    path = png_file("a.png", 7, 3)
+
+    (info,) = image_infos([str(path)])
+
+    assert set(info) == OK_KEYS
+
+
 def test_size_bytes_matches_disk(png_file):
     """size_bytes 应与磁盘上的实际文件大小一致。"""
     path = png_file("a.png", 7, 3)
@@ -78,16 +88,41 @@ def test_empty_input():
     assert image_infos([]) == []
 
 
-def test_missing_file_raises(tmp_path):
-    """路径不存在时整批失败。"""
-    with pytest.raises(DaftCoreException):
-        image_infos([str(tmp_path / "不存在.png")])
+def test_missing_file_reports_error(tmp_path):
+    """路径不存在时返回 error 项，而不是抛异常。"""
+    missing = tmp_path / "不存在.png"
+
+    (result,) = image_infos([str(missing)])
+
+    assert result["path"] == str(missing)
+    assert result["error"]
+    assert "\n" not in result["error"]
 
 
-def test_not_an_image_raises(tmp_path):
-    """扩展名像图片但内容不是时整批失败。"""
+def test_not_an_image_reports_error(tmp_path):
+    """扩展名像图片但内容不是时返回 error 项。"""
     fake = tmp_path / "fake.png"
     fake.write_text("这不是图片")
 
-    with pytest.raises(DaftCoreException):
-        image_infos([str(fake)])
+    (result,) = image_infos([str(fake)])
+
+    assert result["path"] == str(fake)
+    assert "Failed to guess image format" in result["error"]
+
+
+def test_mixed_good_and_bad(png_file, tmp_path):
+    """好坏混合：好文件给出完整信息，坏文件给出 path+error，顺序保持不变。"""
+    good = png_file("good.png", 7, 3)
+    fake = tmp_path / "fake.png"
+    fake.write_text("这不是图片")
+    missing = tmp_path / "nope.png"
+
+    results = image_infos([str(good), str(fake), str(missing)])
+
+    assert [r["path"] for r in results] == [str(good), str(fake), str(missing)]
+
+    assert set(results[0]) == OK_KEYS
+    assert results[0]["width"] == 7
+
+    assert set(results[1]) == {"path", "error"}
+    assert set(results[2]) == {"path", "error"}
