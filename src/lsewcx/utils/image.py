@@ -1,3 +1,6 @@
+import contextlib
+import io
+
 import daft
 import daft.functions as F
 from daft.exceptions import DaftCoreException
@@ -11,8 +14,8 @@ def image_infos(paths: list[str]) -> list[dict]:
     六个键的字典；失败时是包含 ``path`` 与 ``error`` 两个键的字典。
 
     只读取文件头、不解码像素。正常情况下批量并行读取；一旦批内出现坏文件，
-    降级为逐条读取以定位并跳过失败项。注意 Daft 在失败时可能向 stderr 打印
-    内部错误行（它自身的日志，不是异常）。
+    降级为逐条读取以定位并跳过失败项。失败原因只出现在返回值的 ``error``
+    字段，Daft 的内部错误日志已在函数内屏蔽。
 
     Args:
         paths: 图片文件路径列表。
@@ -21,10 +24,15 @@ def image_infos(paths: list[str]) -> list[dict]:
         与 ``paths`` 等长的列表，顺序与输入一致；失败项以 ``error`` 键标记。
     """
     paths = list(paths)
-    try:
-        return _read_batch(paths)
-    except DaftCoreException:
-        return [_read_one(path) for path in paths]
+
+    # Daft 在读取失败时会向 stderr 打印内部错误行，而失败原因已经写进返回值。
+    # 注意：redirect_stderr 是进程级的，多线程并发写 stderr 时窗口内的输出
+    # 会被一并吞掉（本函数窗口很短，正常可接受）。
+    with contextlib.redirect_stderr(io.StringIO()):
+        try:
+            return _read_batch(paths)
+        except DaftCoreException:
+            return [_read_one(path) for path in paths]
 
 
 def _read_batch(paths: list[str]) -> list[dict]:

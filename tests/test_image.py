@@ -126,3 +126,16 @@ def test_mixed_good_and_bad(png_file, tmp_path):
 
     assert set(results[1]) == {"path", "error"}
     assert set(results[2]) == {"path", "error"}
+
+
+def test_no_stderr_noise(png_file, tmp_path, capsys):
+    """失败时不应向 stdout/stderr 打印任何内容：错误只出现在返回值里。"""
+    good = png_file("good.png", 7, 3)
+    fake = tmp_path / "fake.png"
+    fake.write_text("这不是图片")
+
+    image_infos([str(good), str(fake), str(tmp_path / "不存在.png")])
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == ""
