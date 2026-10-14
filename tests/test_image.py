@@ -3,7 +3,9 @@ import zlib
 from pathlib import Path
 
 import pytest
+from daft.exceptions import DaftCoreException
 
+from lsewcx.utils import image as image_module
 from lsewcx.utils.image import image_infos
 
 OK_KEYS = {"path", "width", "height", "format", "mode", "size_bytes"}
@@ -139,3 +141,19 @@ def test_no_stderr_noise(png_file, tmp_path, capsys):
     captured = capsys.readouterr()
     assert captured.out == ""
     assert captured.err == ""
+
+
+def test_unexpected_exception_propagates(monkeypatch, tmp_path):
+    """非文件层面的异常（代码 bug）不能被吞成 error 项，应直接抛出。"""
+    calls = {"count": 0}
+
+    def flaky_read_batch(paths):
+        calls["count"] += 1
+        if calls["count"] == 1:  # 快路径失败 → 触发逐条降级
+            raise DaftCoreException("批量读取失败")
+        raise ValueError("这是代码 bug")
+
+    monkeypatch.setattr(image_module, "_read_batch", flaky_read_batch)
+
+    with pytest.raises(ValueError):
+        image_infos([str(tmp_path / "whatever.png")])

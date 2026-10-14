@@ -65,11 +65,13 @@ def _read_batch(paths: list[str]) -> list[dict]:
 
 
 def _read_one(path: str) -> dict:
-    """逐条读取（慢路径）：失败时返回 path + error，而不是抛异常。"""
+    """逐条读取（慢路径）：文件层面失败时返回 path + error，代码 bug 则向上抛出。"""
     try:
         (info,) = _read_batch([path])
         return info
-    except Exception as exc:  # 逐条模式下任何读取失败都转化为 error 项
+    except (DaftCoreException, OSError) as exc:
+        # 文件层面的失败（内容、存在性、权限）→ 记成 error 项；
+        # 其他异常视为代码 bug，直接抛出，不伪装成读取失败
         return {"path": path, "error": _error_text(exc)}
 
 
