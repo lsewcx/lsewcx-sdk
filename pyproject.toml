@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "daft>=0.7.26",
+    "huggingface-hub>=2.2.0",
     "loguru>=0.7.3",
     "python-dotenv>=1.2.4",
 ]
